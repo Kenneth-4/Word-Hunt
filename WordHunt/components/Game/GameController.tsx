@@ -156,21 +156,20 @@ const GameController: React.FC = () => {
           setCurrentWord(word);
           validateWord(word);
         }}
+        wordStatus={wordStatus}
       />
       
       {/* Status message */}
-      {wordStatus && (
-        <View style={styles.statusContainer}>
-          <Text 
-            style={[
-              styles.statusText,
-              wordStatus === 'Valid word!' ? styles.validText : styles.invalidText
-            ]}
-          >
-            {wordStatus}
-          </Text>
-        </View>
-      )}
+      <View style={styles.statusContainer}>
+        <Text 
+          style={[
+            styles.statusText,
+            wordStatus === 'Valid word!' ? styles.validText : styles.invalidText
+          ]}
+        >
+          {currentWord && wordStatus ? `${currentWord}: ${wordStatus}` : ''}
+        </Text>
+      </View>
       
       {/* Game over modal */}
       <Modal

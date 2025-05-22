@@ -5,8 +5,8 @@ import * as Haptics from 'expo-haptics';
 
 // Define letter tile dimensions based on screen size
 const { width } = Dimensions.get('window');
-const GRID_SIZE = 4;
-const TILE_MARGIN = 4;
+const GRID_SIZE = 10;
+const TILE_MARGIN = 2;
 const TILE_SIZE = (width - 40) / GRID_SIZE - TILE_MARGIN * 2;
 
 // Game letters
@@ -32,9 +32,10 @@ type Position = {
 
 type GameBoardProps = {
   onWordSubmit: (word: string) => void;
+  wordStatus?: string;
 };
 
-const GameBoard: React.FC<GameBoardProps> = ({ onWordSubmit }) => {
+const GameBoard: React.FC<GameBoardProps> = ({ onWordSubmit, wordStatus }) => {
   const [board, setBoard] = useState(generateBoard());
   const [selectedTiles, setSelectedTiles] = useState<Position[]>([]);
   const [currentWord, setCurrentWord] = useState('');
@@ -93,6 +94,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ onWordSubmit }) => {
       {/* Current word display */}
       <View style={styles.wordDisplay}>
         <Text category="h5">{currentWord || 'Select letters'}</Text>
+        {wordStatus && (
+          <Text 
+            category="s1" 
+            style={[
+              styles.statusIndicator,
+              wordStatus === 'Valid word!' ? styles.validIndicator : styles.invalidIndicator
+            ]}
+          >
+            {wordStatus}
+          </Text>
+        )}
       </View>
       
       {/* Game board */}
@@ -223,6 +235,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'white',
     fontWeight: 'bold',
+  },
+  statusIndicator: {
+    marginTop: 4,
+    fontWeight: 'bold',
+  },
+  validIndicator: {
+    color: '#22c55e', // green-500
+  },
+  invalidIndicator: {
+    color: '#ef4444', // red-500
   },
 });
 

@@ -6,29 +6,12 @@ import GameBoard from './GameBoard';
 // import ScoreBoard from './ScoreBoard';
 
 // Inline ScoreBoard with StyleSheet instead of NativeWind
-const ScoreBoard = ({ score, timeLeft, foundWords }: { score: number, timeLeft: number, foundWords: string[] }) => {
-  // Format time to mm:ss
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
+const ScoreBoard = ({ score, foundWords }: { score: number, foundWords: string[] }) => {
   return (
     <View style={styles.scoreContainer}>
       <View style={styles.scoreItem}>
         <Text category="s2">Score</Text>
         <Text category="h6">{score}</Text>
-      </View>
-      
-      <View style={styles.scoreItem}>
-        <Text category="s2">Time</Text>
-        <Text 
-          category="h6" 
-          style={timeLeft < 10 ? styles.redText : null}
-        >
-          {formatTime(timeLeft)}
-        </Text>
       </View>
       
       <View style={styles.scoreItem}>
@@ -62,27 +45,69 @@ const DICTIONARY = new Set([
   'WITH', 'WOOD', 'WORD', 'WORK', 'YEAR', 'YOUR', 'ZERO', 'ZONE'
 ]);
 
+// Generate a list of target words for the player to find
+const generateTargetWords = (): string[] => {
+  // Convert the dictionary to an array for easier filtering
+  const dictionaryArray = Array.from(DICTIONARY) as string[];
+  
+  // Filter words that are at least 4 letters
+  const validWords = dictionaryArray.filter(word => word.length >= 4);
+  
+  // Randomly select 10 words
+  const targetWords: string[] = [];
+  const targetCount = Math.min(10, validWords.length);
+  
+  while (targetWords.length < targetCount) {
+    const randomIndex = Math.floor(Math.random() * validWords.length);
+    const word = validWords[randomIndex];
+    
+    if (!targetWords.includes(word)) {
+      targetWords.push(word);
+    }
+  }
+  
+  return targetWords;
+};
+
 type GameState = {
   score: number;
   timeLeft: number;
   foundWords: string[];
+  targetWords: string[];
   gameOver: boolean;
 };
 
-const GAME_DURATION = 60; // 60 seconds
+// Game durations based on difficulty
+const GAME_DURATIONS = {
+  EASY: Infinity, // No time limit
+  MEDIUM: Infinity, // No time limit
+  HARD: Infinity // No time limit
+};
 
-const GameController: React.FC = () => {
+interface GameControllerProps {
+  difficulty?: number; // 0: Easy, 1: Medium, 2: Hard
+}
+
+const GameController: React.FC<GameControllerProps> = ({ difficulty = 1 }) => {
+  // Determine game duration based on difficulty
+  const getGameDuration = () => {
+    // Always return infinite time
+    return Infinity;
+  };
+  
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
-    timeLeft: GAME_DURATION,
+    timeLeft: getGameDuration(),
     foundWords: [],
+    targetWords: generateTargetWords(),
     gameOver: false,
   });
   const [showModal, setShowModal] = useState(false);
   const [currentWord, setCurrentWord] = useState('');
   const [wordStatus, setWordStatus] = useState('');
 
-  // Timer countdown
+  // Timer is disabled since we have infinite time
+  /* 
   useEffect(() => {
     if (gameState.timeLeft > 0 && !gameState.gameOver) {
       const timer = setTimeout(() => {
@@ -98,6 +123,7 @@ const GameController: React.FC = () => {
       setShowModal(true);
     }
   }, [gameState.timeLeft, gameState.gameOver]);
+  */
 
   // Validate word
   const validateWord = (word: string) => {
@@ -113,8 +139,24 @@ const GameController: React.FC = () => {
       return false;
     }
     
+    // Check if word is a target word first (priority)
+    if (gameState.targetWords.includes(word)) {
+      // Calculate score with bonus for target words
+      const wordScore = Math.max(1, word.length - 2);
+      const bonusPoints = word.length;
+      
+      setGameState(prev => ({
+        ...prev,
+        score: prev.score + wordScore + bonusPoints,
+        foundWords: [...prev.foundWords, word]
+      }));
+      
+      setWordStatus('Target word found!');
+      return true;
+    }
+    
     // Check if word is in dictionary
-    if (DICTIONARY.has(word)) {
+    else if (DICTIONARY.has(word)) {
       // Calculate score (1 point per letter after 2 letters)
       const wordScore = Math.max(1, word.length - 2);
       
@@ -136,27 +178,63 @@ const GameController: React.FC = () => {
   const restartGame = () => {
     setGameState({
       score: 0,
-      timeLeft: GAME_DURATION,
+      timeLeft: getGameDuration(),
       foundWords: [],
+      targetWords: generateTargetWords(),
       gameOver: false,
     });
     setShowModal(false);
+    setWordStatus('');
   };
+
+  // End game manually
+  const endGameManually = () => {
+    setGameState(prev => ({ ...prev, gameOver: true }));
+    setShowModal(true);
+  };
+
+  // Calculate progress - how many target words found
+  const calculateProgress = () => {
+    const foundTargets = gameState.targetWords.filter(word => 
+      gameState.foundWords.includes(word)
+    ).length;
+    
+    return {
+      found: foundTargets,
+      total: gameState.targetWords.length,
+      percentage: Math.round((foundTargets / gameState.targetWords.length) * 100)
+    };
+  };
+
+  const progress = calculateProgress();
 
   return (
     <View style={styles.container}>
       <ScoreBoard 
         score={gameState.score} 
-        timeLeft={gameState.timeLeft} 
         foundWords={gameState.foundWords}
       />
+      
+      {/* End Game Button */}
+      <View style={styles.endGameButtonContainer}>
+        <Button 
+          status="danger" 
+          size="small" 
+          onPress={endGameManually}
+          style={styles.endGameButton}
+        >
+          End Game
+        </Button>
+      </View>
       
       <GameBoard 
         onWordSubmit={(word) => {
           setCurrentWord(word);
-          validateWord(word);
+          return validateWord(word);
         }}
         wordStatus={wordStatus}
+        foundWords={gameState.foundWords}
+        targetWords={gameState.targetWords}
       />
       
       {/* Status message */}
@@ -178,16 +256,40 @@ const GameController: React.FC = () => {
         onBackdropPress={() => {}}
       >
         <Card disabled={true} style={styles.modalCard}>
-          <Text category="h4" style={styles.centerText}>Game Over!</Text>
+          <Text category="h4" style={styles.centerText}>Game Complete!</Text>
           <Text category="s1" style={[styles.centerText, styles.marginBottom]}>Your score: {gameState.score}</Text>
-          <Text category="s1" style={[styles.centerText, styles.marginBottom]}>Words found: {gameState.foundWords.length}</Text>
+          <Text category="s1" style={[styles.centerText, styles.marginBottom]}>
+            Target words found: {progress.found}/{progress.total} ({progress.percentage}%)
+          </Text>
+          <Text category="s1" style={[styles.centerText, styles.marginBottom]}>
+            Total words found: {gameState.foundWords.length}
+          </Text>
           
           <View style={[styles.wordsContainer, styles.marginBottom]}>
-            <Text category="s2" style={styles.centerText}>Words:</Text>
+            <Text category="s2" style={styles.sectionTitle}>Target Words:</Text>
+            <View style={styles.wordsGrid}>
+              {gameState.targetWords.map(word => (
+                <Text 
+                  key={word}
+                  style={[
+                    styles.wordItem,
+                    gameState.foundWords.includes(word) ? styles.foundTargetWord : styles.missedTargetWord
+                  ]}
+                >
+                  {word}
+                </Text>
+              ))}
+            </View>
+            
+            <Text category="s2" style={[styles.sectionTitle, styles.marginTop]}>All Found Words:</Text>
             <Text style={styles.centerText}>{gameState.foundWords.join(', ')}</Text>
           </View>
           
-          <Button onPress={restartGame}>Play Again</Button>
+          <View style={styles.buttonRow}>
+            <Button onPress={restartGame} style={styles.playAgainButton}>
+              New Game
+            </Button>
+          </View>
         </Card>
       </Modal>
     </View>
@@ -197,20 +299,27 @@ const GameController: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f9fafb',
   },
   scoreContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#f8f9fa',
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    padding: 12,
+    backgroundColor: '#ffffff',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 8,
   },
   scoreItem: {
     alignItems: 'center',
   },
   redText: {
-    color: 'red',
+    color: '#ef4444',
   },
   statusContainer: {
     alignItems: 'center', 
@@ -221,7 +330,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   validText: {
-    color: '#22c55e', // green-600
+    color: '#10b981', // green-500
   },
   invalidText: {
     color: '#ef4444', // red-500
@@ -230,8 +339,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalCard: {
-    width: 300,
-    padding: 16,
+    width: 340,
+    padding: 20,
+    borderRadius: 16,
   },
   centerText: {
     textAlign: 'center',
@@ -239,9 +349,56 @@ const styles = StyleSheet.create({
   marginBottom: {
     marginBottom: 16,
   },
+  marginTop: {
+    marginTop: 16,
+  },
   wordsContainer: {
-    maxHeight: 160,
+    maxHeight: 240,
     overflow: 'scroll',
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  wordsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  wordItem: {
+    margin: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    fontWeight: '500',
+  },
+  foundTargetWord: {
+    backgroundColor: '#d1fae5',
+    color: '#10b981',
+  },
+  missedTargetWord: {
+    backgroundColor: '#fee2e2',
+    color: '#ef4444',
+  },
+  playAgainButton: {
+    borderRadius: 24,
+    backgroundColor: '#4f46e5',
+    borderColor: '#4f46e5',
+  },
+  endGameButtonContainer: {
+    alignItems: 'flex-end',
+    padding: 12,
+  },
+  endGameButton: {
+    borderRadius: 24,
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
   },
 });
 

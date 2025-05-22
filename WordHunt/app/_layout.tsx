@@ -1,19 +1,22 @@
 import React from 'react';
-import { Stack } from "expo-router";
+import { Stack } from 'expo-router';
 import * as eva from '@eva-design/eva';
 import { ApplicationProvider, IconRegistry } from '@ui-kitten/components';
 import { EvaIconsPack } from '@ui-kitten/eva-icons';
-import { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
 
-export default function RootLayout() {
+export default function Layout() {
   return (
     <>
       <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider {...eva} theme={eva.light}>
-        <Stack screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: 'white' }
-        }} />
+        <StatusBar style="dark" />
+        <Stack
+          initialRouteName="index"
+          screenOptions={{
+            headerShown: false,
+          }}
+        />
       </ApplicationProvider>
     </>
   );
